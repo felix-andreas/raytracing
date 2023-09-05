@@ -1,39 +1,113 @@
 use itertools::Itertools;
 
+/*
+ * MAIN
+ */
+
 fn main() {
     let width = 1280;
     let height = 720;
-    let pixels = (0..width)
-        .cartesian_product(0..height)
-        .map(|(i, j)| DVec3 {
-            x: i as f64 / (width - 1) as f64,
-            y: j as f64 / (height - 1) as f64,
-            z: 0.0,
+    let viewport_height = 2.0;
+    let viewport_width = viewport_height * (width as f64) / (height as f64);
+    let focal_length = 1.0;
+    let camera_center = DVec3::new(0.0, 0.0, 0.0);
+
+    let viewport_u = DVec3::new(viewport_width, 0.0, 0.0);
+    let viewport_v = DVec3::new(0.0, -viewport_height, 0.0);
+    let pixel_delta_u = (1.0 / width as f64) * viewport_u;
+    let pixel_delta_v = (1.0 / height as f64) * viewport_v;
+
+    let viewport_upper_left =
+        camera_center + DVec3::new(0.0, 0.0, focal_length) + 0.5 * viewport_u + 0.5 * viewport_v;
+
+    let pixel00 = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
+
+    let pixels = (0..height)
+        .cartesian_product(0..width)
+        .map(|(j, i)| {
+            let pixel_center = pixel00 + (i as f64 * pixel_delta_u) + (j as f64 * pixel_delta_v);
+            let ray = Ray {
+                origin: camera_center,
+                direction: pixel_center - camera_center,
+            };
+            ray.color()
         })
         .collect::<Vec<_>>();
+
     write_ppm(width, height, &pixels);
 }
 
+/*
+ * Ray
+ */
+
+struct Ray {
+    #[allow(unused)]
+    origin: DVec3,
+    direction: DVec3,
+}
+
+impl Ray {
+    #[allow(unused)]
+    fn at(&self, t: f64) -> DVec3 {
+        self.origin + t * self.direction
+    }
+    fn color(&self) -> DVec3 {
+        let a = 0.5 * (self.direction.unit().y + 1.0);
+        (1.0 - a) * DVec3::new(1.0, 1.0, 1.0) + a * DVec3::new(0.5, 0.7, 1.0)
+    }
+}
+
+/*
+ * DVec3
+ */
+
+#[derive(Debug, Clone, Copy)]
 struct DVec3 {
     x: f64,
     y: f64,
     z: f64,
 }
 
-struct Ray {
-    origin: DVec3,
-    direction: DVec3,
-}
-
-impl Ray {
-    fn at(&self, t: f64) -> DVec3 {
-        DVec3 {
-            x: self.origin.x + t * self.direction.x,
-            y: self.origin.y + t * self.direction.y,
-            z: self.origin.z + t * self.direction.z,
-        }
+impl DVec3 {
+    fn new(x: f64, y: f64, z: f64) -> DVec3 {
+        DVec3 { x, y, z }
+    }
+    fn length(self) -> f64 {
+        (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
+    }
+    fn unit(self) -> DVec3 {
+        (1.0 / self.length()) * self
     }
 }
+
+impl std::ops::Add for DVec3 {
+    type Output = DVec3;
+
+    fn add(self, other: DVec3) -> DVec3 {
+        DVec3::new(self.x + other.x, self.y + other.y, self.z + other.z)
+    }
+}
+
+impl std::ops::Sub for DVec3 {
+    type Output = DVec3;
+
+    fn sub(self, other: DVec3) -> DVec3 {
+        DVec3::new(self.x - other.x, self.y - other.y, self.z - other.z)
+    }
+}
+
+impl std::ops::Mul<DVec3> for f64 {
+    type Output = DVec3;
+
+    fn mul(self, vec: DVec3) -> Self::Output {
+        DVec3::new(self * vec.x, self * vec.y, self * vec.z)
+    }
+}
+
+/*
+ * PPM
+ */
 
 fn write_ppm(width: i32, height: i32, pixels: &[DVec3]) {
     std::fs::write(
