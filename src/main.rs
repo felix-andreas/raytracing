@@ -1,14 +1,18 @@
 use itertools::Itertools;
 
 fn main() {
-    let width = 2;
-    let height = 2;
-    let pixels = vec![
-        Pixel(0.1, 0.2, 0.3),
-        Pixel(0.4, 0.2, 1.0),
-        Pixel(0.8, 0.2, 0.7),
-        Pixel(1.0, 0.2, 0.3),
-    ];
+    let width = 256;
+    let height = 256;
+    let pixels = (0..width)
+        .cartesian_product(0..height)
+        .map(|(i, j)| {
+            Pixel(
+                i as f64 / (width - 1) as f64,
+                j as f64 / (height - 1) as f64,
+                0.0,
+            )
+        })
+        .collect::<Vec<_>>();
     write_ppm(width, height, &pixels);
 }
 
