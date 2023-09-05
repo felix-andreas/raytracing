@@ -5,8 +5,8 @@ use itertools::Itertools;
  */
 
 fn main() {
-    let width = 1280;
-    let height = 720;
+    let width = 720;
+    let height = 405;
     let viewport_height = 2.0;
     let viewport_width = viewport_height * (width as f64) / (height as f64);
     let focal_length = 1.0;
@@ -18,7 +18,7 @@ fn main() {
     let pixel_delta_v = (1.0 / height as f64) * viewport_v;
 
     let viewport_upper_left =
-        camera_center + DVec3::new(0.0, 0.0, focal_length) + 0.5 * viewport_u + 0.5 * viewport_v;
+        camera_center + DVec3::new(0.0, 0.0, focal_length) - 0.5 * (viewport_u + viewport_v);
 
     let pixel00 = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
 
@@ -41,6 +41,7 @@ fn main() {
  * Ray
  */
 
+#[derive(Debug)]
 struct Ray {
     #[allow(unused)]
     origin: DVec3,
@@ -53,8 +54,20 @@ impl Ray {
         self.origin + t * self.direction
     }
     fn color(&self) -> DVec3 {
+        fn hit_sphere(ray: &Ray, center: DVec3, radius: f64) -> bool {
+            let oc = ray.origin - center;
+            let a = ray.direction * ray.direction;
+            let b = 2.0 * ray.direction * oc;
+            let c = oc * oc - radius * radius;
+            b * b - 4.0 * a * c >= 0.0
+        }
+
+        if hit_sphere(self, DVec3::new(0.0, 0.0, -1.0), 0.5) {
+            return DVec3::new(1.0, 0.0, 0.0);
+        }
+
         let a = 0.5 * (self.direction.unit().y + 1.0);
-        (1.0 - a) * DVec3::new(1.0, 1.0, 1.0) + a * DVec3::new(0.5, 0.7, 1.0)
+        (1.0 - a) * DVec3::new(1.0, 1.0, 1.0) + a * DVec3::new(0.3, 0.3, 0.3)
     }
 }
 
@@ -102,6 +115,14 @@ impl std::ops::Mul<DVec3> for f64 {
 
     fn mul(self, vec: DVec3) -> Self::Output {
         DVec3::new(self * vec.x, self * vec.y, self * vec.z)
+    }
+}
+
+impl std::ops::Mul<DVec3> for DVec3 {
+    type Output = f64;
+
+    fn mul(self, other: DVec3) -> Self::Output {
+        self.x * other.x + self.y * other.y + self.z * other.z
     }
 }
 
