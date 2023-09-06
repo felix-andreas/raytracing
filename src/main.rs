@@ -18,7 +18,7 @@ fn main() {
     let pixel_delta_v = (1.0 / height as f64) * viewport_v;
 
     let viewport_upper_left =
-        camera_center + DVec3::new(0.0, 0.0, focal_length) - 0.5 * (viewport_u + viewport_v);
+        camera_center + DVec3::new(0.0, 0.0, -focal_length) - 0.5 * (viewport_u + viewport_v);
 
     let pixel00 = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
 
@@ -68,21 +68,49 @@ impl Ray {
                 Object::Sphere { center, radius } => {
                     let oc = ray.origin - *center;
                     let a = ray.direction * ray.direction;
-                    let b = 2.0 * ray.direction * oc;
+                    let b = ray.direction * oc;
                     let c = oc * oc - radius * radius;
-                    let discriminant = b * b - 4.0 * a * c;
-                    (discriminant >= 0.0).then(|| -0.5 * (b + discriminant.sqrt()) / a)
+                    let discriminant = b * b - a * c;
+                    if discriminant < 0.0 {
+                        return None;
+                    }
+
+                    (discriminant >= 0.0)
+                        .then(|| discriminant.sqrt())
+                        .and_then(|d_sqrt| match ((-b - d_sqrt) / a, (-b + d_sqrt) / a) {
+                            (x, _) if (0.0..f64::INFINITY).contains(&x) => Some(x),
+                            (_, y) if (0.0..f64::INFINITY).contains(&y) => Some(y),
+                            _ => None,
+                        })
                 }
             }
         }
 
-        let sphere = Object::Sphere {
-            center: DVec3::new(0.0, 0.0, -1.0),
-            radius: 0.5,
-        };
+        let objects = vec![
+            Object::Sphere {
+                center: DVec3::new(0.0, -1000.5, -1.0),
+                radius: 1000.0,
+            },
+            Object::Sphere {
+                center: DVec3::new(0.0, 0.0, -1.0),
+                radius: 0.5,
+            },
+            Object::Sphere {
+                center: DVec3::new(-2.0, -0.25, -2.0),
+                radius: 0.25,
+            },
+            Object::Sphere {
+                center: DVec3::new(-3.0, -0.25, -4.0),
+                radius: 0.25,
+            },
+        ];
 
-        if let Some(t) = hit_object(self, &sphere) {
-            match sphere {
+        if let Some((t, object)) = objects
+            .into_iter()
+            .filter_map(|object| hit_object(self, &object).map(|t| (t, object)))
+            .min_by(|(ta, _), (tb, _)| ta.total_cmp(tb))
+        {
+            match object {
                 Object::Sphere { center, .. } => {
                     let normal = (self.at(t) - center).unit();
                     return 0.5 * (normal + DVec3::new(1.0, 1.0, 1.0));
@@ -91,7 +119,7 @@ impl Ray {
         }
 
         let a = 0.5 * (self.direction.unit().y + 1.0);
-        (1.0 - a) * DVec3::new(1.0, 1.0, 1.0) + a * DVec3::new(0.3, 0.3, 0.3)
+        (1.0 - a) * DVec3::new(1.0, 1.0, 1.0) + a * DVec3::new(0.5, 0.7, 0.9)
     }
 }
 
