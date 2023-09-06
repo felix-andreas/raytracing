@@ -38,6 +38,15 @@ fn main() {
 }
 
 /*
+ * Object
+ */
+
+#[derive(Debug)]
+enum Object {
+    Sphere { center: DVec3, radius: f64 },
+}
+
+/*
  * Ray
  */
 
@@ -54,16 +63,31 @@ impl Ray {
         self.origin + t * self.direction
     }
     fn color(&self) -> DVec3 {
-        fn hit_sphere(ray: &Ray, center: DVec3, radius: f64) -> bool {
-            let oc = ray.origin - center;
-            let a = ray.direction * ray.direction;
-            let b = 2.0 * ray.direction * oc;
-            let c = oc * oc - radius * radius;
-            b * b - 4.0 * a * c >= 0.0
+        fn hit_object(ray: &Ray, object: &Object) -> Option<f64> {
+            match object {
+                Object::Sphere { center, radius } => {
+                    let oc = ray.origin - *center;
+                    let a = ray.direction * ray.direction;
+                    let b = 2.0 * ray.direction * oc;
+                    let c = oc * oc - radius * radius;
+                    let discriminant = b * b - 4.0 * a * c;
+                    (discriminant >= 0.0).then(|| -0.5 * (b + discriminant.sqrt()) / a)
+                }
+            }
         }
 
-        if hit_sphere(self, DVec3::new(0.0, 0.0, -1.0), 0.5) {
-            return DVec3::new(1.0, 0.0, 0.0);
+        let sphere = Object::Sphere {
+            center: DVec3::new(0.0, 0.0, -1.0),
+            radius: 0.5,
+        };
+
+        if let Some(t) = hit_object(self, &sphere) {
+            match sphere {
+                Object::Sphere { center, .. } => {
+                    let normal = (self.at(t) - center).unit();
+                    return 0.5 * (normal + DVec3::new(1.0, 1.0, 1.0));
+                }
+            }
         }
 
         let a = 0.5 * (self.direction.unit().y + 1.0);
