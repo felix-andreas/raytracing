@@ -20,17 +20,27 @@ fn main() {
     let viewport_upper_left =
         camera_center + DVec3::new(0.0, 0.0, -focal_length) - 0.5 * (viewport_u + viewport_v);
 
-    let pixel00 = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
-
     let pixels = (0..height)
         .cartesian_product(0..width)
         .map(|(j, i)| {
-            let pixel_center = pixel00 + (i as f64 * pixel_delta_u) + (j as f64 * pixel_delta_v);
-            let ray = Ray {
-                origin: camera_center,
-                direction: pixel_center - camera_center,
-            };
-            ray.color()
+            let subpixel = 8;
+            (1.0 / (subpixel as f64 * subpixel as f64))
+                * (0..subpixel)
+                    .cartesian_product(0..subpixel)
+                    .map(|(k, l)| {
+                        let pixel_center = viewport_upper_left
+                            + ((i as f64) + (0.5 + k as f64) * (1.0 / subpixel as f64))
+                                * pixel_delta_u
+                            + ((j as f64) + (0.5 + l as f64) * (1.0 / subpixel as f64))
+                                * pixel_delta_v;
+                        let ray = Ray {
+                            origin: camera_center,
+                            direction: pixel_center - camera_center,
+                        };
+                        ray.color()
+                    })
+                    .reduce(|acc, e| acc + e)
+                    .unwrap()
         })
         .collect::<Vec<_>>();
 
