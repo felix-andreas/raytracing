@@ -1,8 +1,9 @@
 use {
     clap::{Parser, ValueEnum},
-    indicatif::ProgressIterator,
+    indicatif::ParallelProgressIterator,
     itertools::Itertools,
     rand::{rngs::StdRng, Rng, SeedableRng},
+    rayon::iter::{IntoParallelIterator, ParallelIterator},
     std::{
         fmt::Write,
         fs,
@@ -48,9 +49,6 @@ fn main() {
         quality,
         output,
     } = { Args::parse() };
-
-    // rng
-    let mut rng = StdRng::seed_from_u64(seed);
 
     // render quality
     let (
@@ -178,9 +176,11 @@ fn main() {
     };
 
     let image_pixels = (0..image_resolution_y)
-        .cartesian_product(0..image_resolution_x)
+        .into_par_iter()
+        .flat_map(|y| (0..image_resolution_x).into_par_iter().map(move |x| (y, x)))
         .progress_count((image_resolution_x * image_resolution_y) as u64)
         .map(|(y, x)| {
+            let mut rng = StdRng::seed_from_u64(seed);
             let color_sum = (0..antialiasing_factor)
                 .cartesian_product(0..antialiasing_factor)
                 .map(|(j, i)| {
@@ -237,7 +237,7 @@ fn main() {
         .collect::<Vec<(u8, u8, u8)>>();
 
     println!(
-        "resolution: {}x{}, antialiasing: {}, time elapsed: {:03?}",
+        "resolution: {}x{}, antialiasing: {}, time elapsed: {:.3?}",
         image_resolution_x,
         image_resolution_y,
         antialiasing_factor,
