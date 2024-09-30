@@ -76,6 +76,17 @@
               ]);
             };
           });
+          package = craneLib.buildPackage (commonArgs // {
+            pname = "raytracing";
+            cargoArtifacts = crateClippy;
+            src = fs.toSource {
+              root = ./.;
+              fileset = fs.unions ([
+                cargoFiles
+                rustFiles
+              ]);
+            };
+          });
         in
         {
           devShell = pkgs.devshell.mkShell {
@@ -90,22 +101,23 @@
             ];
           };
           check = crateClippy;
-          package = craneLib.buildPackage (commonArgs // {
-            pname = "raytracing";
-            cargoArtifacts = crateClippy;
-            src = fs.toSource {
-              root = ./.;
-              fileset = fs.unions ([
-                cargoFiles
-                rustFiles
-              ]);
-            };
-          });
+          package = package;
+          render = pkgs.runCommand "render"
+            {
+              buildInputs = [ package ];
+            }
+            ''
+              mkdir -p $out
+              raytracing -q high -o $out/out.ppm
+            '';
         });
     in
     {
       checks = eachSystem (system: { default = (flake system).check; });
       devShells = eachSystem (system: { default = (flake system).devShell; });
-      packages = eachSystem (system: { default = (flake system).package; });
+      packages = eachSystem (system: {
+        default = (flake system).package;
+        render = (flake system).render;
+      });
     };
 }
